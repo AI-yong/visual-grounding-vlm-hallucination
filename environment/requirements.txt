@@ -1,0 +1,16 @@
+accelerate
+bitsandbytes
+matplotlib
+numpy
+pandas
+pillow
+pycocotools
+pyyaml
+qwen-vl-utils
+scikit-learn
+scipy
+seaborn
+torch
+torchvision
+tqdm
+transformers

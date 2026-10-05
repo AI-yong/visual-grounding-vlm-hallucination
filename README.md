@@ -1,89 +1,157 @@
-# VIG Grounded Hallucination Pilot
+# VLM 환각과 시각적 근거 분석
 
-Qwen2.5-VL의 object-existence hallucination을 POPE에서 측정하고, OWLv2의 external object grounding signal이 hallucinated `Yes`를 식별하고 완화하는 데 도움이 되는지 검증하는 미니 empirical project다.
+## 목적
 
-## 핵심 비교
+이 프로젝트는 Qwen2.5-VL의 객체 존재 환각을 측정한다.
 
-1. **Qwen-only**: Qwen2.5-VL의 원래 Yes/No 답변
-2. **OWLv2-only**: grounding score threshold만으로 만든 Yes/No 답변
-3. **Qwen + OWLv2 gate**: Qwen의 Yes 중 grounding score가 낮은 답변을 No로 변경
+이 프로젝트는 COCO-POPE adversarial 데이터를 사용한다. 또한 OWLv2의 시각적 근거가 환각을 줄이는지 확인한다.
 
-현재 핵심 방법은 decoding 내부 수정이 아니라 **inference-time post-hoc verification**이다.
+현재 방법은 Qwen의 디코더를 변경하지 않는다. Qwen이 추론을 완료한 뒤에 답변을 검증한다.
 
-## 현재 결과
+## 비교 방법
 
-COCO-POPE adversarial 3,000문항을 실행하고, 이미지 단위로 dev 100장과 test 400장을 분리했다. Threshold는 dev의 balanced accuracy로 선택하고 test 2,400문항에서 한 번 평가했다.
+이 실험은 세 가지 방법을 비교한다.
 
-| Method | Accuracy | Precision | Recall | F1 | FPR |
+1. **Qwen 단독**은 Qwen2.5-VL의 Yes 또는 No 답변을 사용한다.
+2. **OWLv2 단독**은 OWLv2 탐지 점수를 Yes 또는 No로 변환한다.
+3. **Qwen + OWLv2 gate**는 OWLv2 점수가 낮을 때 Qwen의 Yes를 No로 변경한다.
+
+Gate는 다음 규칙을 사용한다.
+
+```text
+최종 Yes = Qwen Yes AND OWLv2 점수 >= threshold
+```
+
+Gate는 잘못된 Yes를 제거할 수 있다. Gate는 잘못된 No를 수정할 수 없다.
+
+## 평가 방법
+
+이 실험은 COCO-POPE adversarial 질문 3,000개를 사용한다. 이 질문들은 이미지 500장을 사용한다.
+
+이 실험은 이미지 단위로 데이터를 분리한다. Dev에는 이미지 100장을 사용한다. Test에는 이미지 400장을 사용한다.
+
+Dev는 threshold를 선택한다. Test는 최종 성능을 측정한다.
+
+Test에는 질문 2,400개가 있다. Threshold 선택 기준은 balanced accuracy이다.
+
+## Test 결과
+
+표의 값은 백분율이다.
+
+| 방법 | Accuracy | Precision | Recall | F1 | FPR |
 |---|---:|---:|---:|---:|---:|
-| Qwen-only | **86.54** | 93.98 | **78.08** | **85.30** | 5.00 |
-| OWLv2-only | 85.79 | 85.18 | 86.67 | 85.91 | 15.08 |
+| Qwen 단독 | **86.54** | 93.98 | **78.08** | **85.30** | 5.00 |
+| OWLv2 단독 | 85.79 | 85.18 | 86.67 | 85.91 | 15.08 |
 | Qwen + OWLv2 gate | 86.08 | **95.01** | 76.17 | 84.55 | **4.00** |
 
-Hard gate는 Qwen의 false positive 12개를 수정했지만 true positive 23개도 제거했다. 따라서 객체 환각과 FPR은 감소했으나 Recall과 전체 정확도는 하락했다. 이 결과는 외부 grounding signal 자체보다 **결합 정책과 detector false negative 관리가 중요함**을 보여주는 파일럿 결과다.
+Hard gate는 Qwen의 Yes 답변 35개를 No로 변경했다.
 
-자세한 프로토콜과 해석은 `docs/results/adversarial_pilot.md`에 정리한다.
+- Gate는 false positive 12개를 수정했다.
+- Gate는 false negative 23개를 새로 만들었다.
+- Gate는 accuracy를 0.46%p 낮췄다.
 
-## 권장 실행 순서
+Gate는 false positive rate를 낮췄다. 그러나 gate는 recall과 전체 accuracy도 낮췄다.
 
-1. POPE와 필요한 COCO 이미지를 `data/raw/`에 준비한다.
-2. Qwen baseline을 adversarial부터 실행한다.
-3. 별도 smoke run 대신 본 실행 첫 10개에서 invalid/error sanity guard를 적용한다.
-4. OWLv2 grounding과 detector-only prediction을 생성한다.
-5. image-level dev/test split으로 gate threshold를 선택·평가한다.
-6. `evaluate_grounded_adversarial.ps1`로 세 조건을 test split에서 비교한다.
-7. 결과표와 그림은 `outputs/`, 발표 자료는 `presentation/`에 저장한다.
+자세한 내용은 [파일럿 결과](docs/results/adversarial_pilot.md)를 참고한다.
 
-## Adversarial baseline 실행
+## 실행 환경 준비
+
+Python 3.11과 CUDA 지원 GPU를 사용한다.
+
+가상환경을 만들고 필요한 패키지를 설치한다.
 
 ```powershell
-cd D:\VIG_Grounded_Hallucination_Pilot
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\environment\requirements.txt
+```
+
+POPE 파일을 다음 위치에 넣는다.
+
+```text
+data/raw/pope/
+```
+
+필요한 COCO 이미지를 다음 위치에 넣는다.
+
+```text
+data/raw/coco/val2014/
+```
+
+이 저장소는 모델 가중치를 포함하지 않는다. COCO 이미지, 전체 예측 결과, 로그도 포함하지 않는다.
+
+## 실험 실행
+
+저장소의 최상위 폴더에서 PowerShell을 연다.
+
+Qwen baseline을 실행한다.
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_adversarial_baseline.ps1
 ```
 
-질문마다 결과를 즉시 저장하므로 중단되어도 같은 명령으로 이어서 실행할 수 있다. 자세한 설명은 `docs/planning/run_baseline.md`를 참고한다.
+스크립트는 각 답변을 즉시 저장한다. 실행이 중단되면 같은 명령을 다시 실행한다.
 
-## OWLv2와 gate 실행
+OWLv2를 실행한다.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_owlv2_adversarial.ps1
+```
+
+세 가지 방법을 평가한다.
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\evaluate_grounded_adversarial.ps1
 ```
 
-모델 가중치, COCO 이미지, raw outputs는 저장소에 포함하지 않는다. `data/splits/`의 고정 split과 문서에 기록한 요약 지표로 실험 프로토콜을 공개한다.
+테스트 코드를 실행한다.
 
-## 디렉터리 안내
-
-```text
-configs/                 실험 설정 YAML
-data/raw/                원본 POPE/COCO 데이터
-data/processed/          전처리·병합 데이터
-data/splits/             image-level dev/test split
-docs/planning/           실행 계획과 실행 가이드
-environment/             requirements, GPU 및 CUDA 정보
-experiments/pilot/       통합 검증 기록
-logs/                    실행 로그
-models/                  로컬 모델 가중치
-outputs/baseline/        Qwen-only raw prediction
-outputs/grounding/       OWLv2 score와 box
-outputs/detector_only/   OWLv2-only prediction
-outputs/gated/           Qwen + OWLv2 gate prediction
-outputs/figures/         최종 그래프
-outputs/tables/          최종 결과표
-outputs/cases/           성공·실패 정성 사례
-presentation/            면담 슬라이드, 그림, 대본
-scripts/                 단계별 실행 entry point
-src/                     재사용 가능한 Python 코드
-tests/                   parser와 metric 단위 테스트
-third_party/             POPE 등 외부 저장소
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-## 실험 원칙
+자세한 실행 방법은 [baseline 실행 가이드](docs/planning/run_baseline.md)를 참고한다.
 
-- Test 결과를 보고 threshold를 수정하지 않는다.
-- 세 POPE setting에 동일한 image-level split을 적용한다.
-- Raw answer와 raw grounding score를 보존한다.
-- FP 감소와 함께 introduced FN 및 Recall 손실을 보고한다.
-- POPE 개선을 일반적인 open-ended hallucination 해결로 과장하지 않는다.
+## 주요 폴더
 
-상세 계획은 `docs/planning/experiment_plan.md`를 참고한다.
+```text
+configs/                 실험 설정
+data/raw/                로컬 POPE 및 COCO 데이터
+data/splits/             고정된 이미지 단위 split
+docs/planning/           실험 계획 및 실행 가이드
+docs/results/            실험 결과 보고서
+environment/             Python 패키지 목록
+experiments/pilot/       소규모 통합 테스트 기록
+logs/                    로컬 실행 로그
+models/                  로컬 모델 가중치
+outputs/baseline/        Qwen 예측 결과
+outputs/grounding/       OWLv2 점수와 box
+outputs/detector_only/   OWLv2 단독 예측 결과
+outputs/gated/           Gate 적용 결과
+outputs/tables/          평가지표 파일
+scripts/                 실행 스크립트
+src/                     Python 소스 코드
+tests/                   단위 테스트
+```
+
+## 실험 규칙
+
+- Test 결과를 확인한 뒤에 threshold를 변경하지 않는다.
+- 각 POPE 설정에 같은 이미지 단위 split을 사용한다.
+- Qwen의 원본 답변과 OWLv2의 원본 점수를 보존한다.
+- False positive 감소와 recall 손실을 함께 보고한다.
+- 이 결과를 모든 VLM 환각에 적용하지 않는다.
+
+POPE는 객체 존재 답변을 측정한다. POPE는 모든 개방형 환각을 측정하지 않는다.
+
+## 다음 실험
+
+다음 실험은 OWLv2 영역을 Qwen의 2차 추론에 제공한다.
+
+이 실험은 다음 입력을 비교한다.
+
+1. 원본 이미지
+2. OWLv2 box를 표시한 이미지
+3. 원본 이미지와 OWLv2 crop
+4. 임의 box 또는 같은 크기의 crop
+
+대조 입력은 정확한 grounding 효과와 단순 확대 효과를 구분한다.

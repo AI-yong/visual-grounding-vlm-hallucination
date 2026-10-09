@@ -82,6 +82,7 @@ BBox 효과를 분리하기 위해 같은 test 질문에서 입력 형태를 비
 BBox 실험의 자세한 내용은 [BBox 유도 결과](docs/results/bbox_guided_adversarial.md)를 참고한다.
 대조 실험의 자세한 내용은 [입력 대조 결과](docs/results/grounding_input_controls.md)를 참고한다.
 디텍터 비교의 자세한 내용은 [디텍터 모델 비교 결과](docs/results/detector_model_comparison.md)를 참고한다.
+세그멘테이션 비교의 자세한 내용은 [SAM2 세그멘테이션 결과](docs/results/segmentation_guided_comparison.md)를 참고한다.
 
 ## 디텍터 모델 비교
 
@@ -94,6 +95,18 @@ Qwen을 고정하고 OWLv2, Grounding DINO tiny, Grounding DINO base를 비교�
 | Grounding DINO base | 77.79 | 84.42 | 84.10 |
 
 디텍터 단독 성능과 BBox 유도 성능의 순위는 일치하지 않았다. 따라서 더 좋은 객체 존재 판별 점수가 곧바로 더 좋은 VLM 추론을 만든다고 결론 내릴 수 없다.
+
+## 세그멘테이션 비교
+
+Grounding DINO tiny의 같은 박스로 일반 crop과 SAM2 mask crop을 비교했다.
+
+| 입력 | Accuracy | Recall | F1 | FPR |
+|---|---:|---:|---:|---:|
+| Qwen 기준선 | **86.54** | 78.08 | **85.30** | **5.00** |
+| DINO tiny BBox crop | 84.92 | **87.50** | 85.30 | 17.67 |
+| DINO tiny + SAM2 mask crop | 85.54 | 82.67 | 85.11 | 11.58 |
+
+SAM2 mask는 일반 crop보다 accuracy를 0.63%p 높이고 FPR을 6.08%p 낮췄다. 그러나 Qwen 기준선은 넘지 못했다. 따라서 mask는 crop이 만든 Yes 편향을 줄였지만, 환각을 전반적으로 해결하지는 못했다.
 
 ## 실행 환경 준비
 
@@ -150,6 +163,18 @@ BBox 유도 Qwen을 실행하고 평가한다.
 powershell -ExecutionPolicy Bypass -File .\scripts\run_bbox_guided_adversarial.ps1
 ```
 
+Grounding DINO를 실행한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_grounding_dino_models.ps1
+```
+
+Grounding DINO tiny의 같은 BBox로 일반 crop과 SAM2 mask를 연속 실행한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_segmentation_comparison.ps1
+```
+
 테스트 코드를 실행한다.
 
 ```powershell
@@ -193,9 +218,8 @@ POPE는 객체 존재 답변을 측정한다. POPE는 모든 개방형 환각을
 
 ## 다음 실험
 
-디텍터 비교는 완료했다. 다음에는 Grounding DINO tiny의 같은 BBox를 사용해 두 입력을 비교한다.
+디텍터 및 SAM2 비교를 완료했다. 다음에는 결과를 사례별로 분석한다.
 
-1. 원본 이미지와 일반 BBox crop을 Qwen에 제공한다.
-2. 같은 BBox로 SAM2 mask를 생성한다.
-3. 원본 이미지와 mask crop을 Qwen에 제공한다.
-4. 사각형 안의 배경을 제거한 픽셀 단위 근거가 도움이 되는지 확인한다.
+1. SAM2가 수정한 104개와 새로 틀린 89개를 객체 크기와 mask 품질로 나눈다.
+2. 박스와 mask가 Yes 편향을 만드는 원인을 시각적 사례로 정리한다.
+3. 필요하면 회색 배경, 투명 강조, 원본 위 mask 윤곽선 등 표시 방식을 대조한다.

@@ -6,15 +6,16 @@
 
 이 프로젝트는 COCO-POPE adversarial 데이터를 사용한다. 또한 OWLv2의 시각적 근거가 환각을 줄이는지 확인한다.
 
-현재 방법은 Qwen의 디코더를 변경하지 않는다. Qwen이 추론을 완료한 뒤에 답변을 검증한다.
+현재 방법은 Qwen의 가중치나 디코더를 변경하지 않는다. 사후 검증과 BBox 유도 재추론을 비교한다.
 
 ## 비교 방법
 
-이 실험은 세 가지 방법을 비교한다.
+이 실험은 네 가지 방법을 비교한다.
 
 1. **Qwen 단독**은 Qwen2.5-VL의 Yes 또는 No 답변을 사용한다.
 2. **OWLv2 단독**은 OWLv2 탐지 점수를 Yes 또는 No로 변환한다.
 3. **Qwen + OWLv2 gate**는 OWLv2 점수가 낮을 때 Qwen의 Yes를 No로 변경한다.
+4. **BBox 유도 Qwen**은 OWLv2 후보 영역을 빨간 상자로 표시하고 Qwen이 다시 답하게 한다.
 
 Gate는 다음 규칙을 사용한다.
 
@@ -43,6 +44,7 @@ Test에는 질문 2,400개가 있다. Threshold 선택 기준은 balanced accura
 | Qwen 단독 | **86.54** | 93.98 | **78.08** | **85.30** | 5.00 |
 | OWLv2 단독 | 85.79 | 85.18 | 86.67 | 85.91 | 15.08 |
 | Qwen + OWLv2 gate | 86.08 | **95.01** | 76.17 | 84.55 | **4.00** |
+| BBox 유도 Qwen | 84.00 | 85.11 | 82.42 | 83.74 | 14.42 |
 
 Hard gate는 Qwen의 Yes 답변 35개를 No로 변경했다.
 
@@ -52,7 +54,18 @@ Hard gate는 Qwen의 Yes 답변 35개를 No로 변경했다.
 
 Gate는 false positive rate를 낮췄다. 그러나 gate는 recall과 전체 accuracy도 낮췄다.
 
+BBox 유도 Qwen은 기존 답변 285개를 변경했다.
+
+- BBox 유도는 오답 112개를 수정했다.
+- BBox 유도는 정답 173개를 오답으로 변경했다.
+- False negative 97개를 수정했다.
+- True negative 128개를 false positive로 변경했다.
+- Accuracy는 2.54%p 낮아졌다.
+
+BBox 표시는 recall을 높였다. 그러나 빨간 상자가 객체 존재의 암시로 작동해 false positive가 크게 증가했다.
+
 자세한 내용은 [파일럿 결과](docs/results/adversarial_pilot.md)를 참고한다.
+BBox 실험의 자세한 내용은 [BBox 유도 결과](docs/results/bbox_guided_adversarial.md)를 참고한다.
 
 ## 실행 환경 준비
 
@@ -97,10 +110,16 @@ OWLv2를 실행한다.
 powershell -ExecutionPolicy Bypass -File .\scripts\run_owlv2_adversarial.ps1
 ```
 
-세 가지 방법을 평가한다.
+기준선, detector, gate를 평가한다.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\evaluate_grounded_adversarial.ps1
+```
+
+BBox 유도 Qwen을 실행하고 평가한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_bbox_guided_adversarial.ps1
 ```
 
 테스트 코드를 실행한다.
@@ -127,6 +146,7 @@ outputs/baseline/        Qwen 예측 결과
 outputs/grounding/       OWLv2 점수와 box
 outputs/detector_only/   OWLv2 단독 예측 결과
 outputs/gated/           Gate 적용 결과
+outputs/bbox_guided/     BBox 유도 Qwen 예측 결과
 outputs/tables/          평가지표 파일
 scripts/                 실행 스크립트
 src/                     Python 소스 코드
@@ -145,13 +165,10 @@ POPE는 객체 존재 답변을 측정한다. POPE는 모든 개방형 환각을
 
 ## 다음 실험
 
-다음 실험은 OWLv2 영역을 Qwen의 2차 추론에 제공한다.
+BBox 표시 조건은 완료했다. 다음에는 BBox와 프롬프트의 효과를 분리한다.
 
-이 실험은 다음 입력을 비교한다.
+1. 원본 이미지에 BBox 조건과 같은 프롬프트만 사용한다.
+2. 임의 위치에 같은 크기의 BBox를 표시한다.
+3. 원본 이미지와 OWLv2 crop을 함께 제공한다.
 
-1. 원본 이미지
-2. OWLv2 box를 표시한 이미지
-3. 원본 이미지와 OWLv2 crop
-4. 임의 box 또는 같은 크기의 crop
-
-대조 입력은 정확한 grounding 효과와 단순 확대 효과를 구분한다.
+이 대조 조건은 정확한 위치 정보, 시각적 강조, 프롬프트 암시의 효과를 구분한다.

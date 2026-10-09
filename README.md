@@ -81,6 +81,19 @@ BBox 효과를 분리하기 위해 같은 test 질문에서 입력 형태를 비
 자세한 내용은 [파일럿 결과](docs/results/adversarial_pilot.md)를 참고한다.
 BBox 실험의 자세한 내용은 [BBox 유도 결과](docs/results/bbox_guided_adversarial.md)를 참고한다.
 대조 실험의 자세한 내용은 [입력 대조 결과](docs/results/grounding_input_controls.md)를 참고한다.
+디텍터 비교의 자세한 내용은 [디텍터 모델 비교 결과](docs/results/detector_model_comparison.md)를 참고한다.
+
+## 디텍터 모델 비교
+
+Qwen을 고정하고 OWLv2, Grounding DINO tiny, Grounding DINO base를 비교했다.
+
+| 디텍터 | 디텍터 단독 Accuracy | BBox 유도 Qwen Accuracy | BBox 유도 Qwen F1 |
+|---|---:|---:|---:|
+| OWLv2 | **85.79** | 84.00 | 83.74 |
+| Grounding DINO tiny | 81.88 | **85.00** | **84.80** |
+| Grounding DINO base | 77.79 | 84.42 | 84.10 |
+
+디텍터 단독 성능과 BBox 유도 성능의 순위는 일치하지 않았다. 따라서 더 좋은 객체 존재 판별 점수가 곧바로 더 좋은 VLM 추론을 만든다고 결론 내릴 수 없다.
 
 ## 실행 환경 준비
 
@@ -180,11 +193,9 @@ POPE는 객체 존재 답변을 측정한다. POPE는 모든 개방형 환각을
 
 ## 다음 실험
 
-입력 대조 실험은 완료했다. 다음에는 Qwen을 고정하고 detector를 변경한다.
+디텍터 비교는 완료했다. 다음에는 Grounding DINO tiny의 같은 BBox를 사용해 두 입력을 비교한다.
 
-1. OWLv2, Grounding DINO tiny, Grounding DINO base를 비교한다.
-2. 각 detector의 객체 존재 판별 성능을 측정한다.
-3. 각 detector의 BBox를 Qwen에 제공한다.
-4. detector 성능과 BBox 유도 성능의 관계를 분석한다.
-
-이 비교는 더 좋은 detector가 더 좋은 VLM 추론을 만드는지 확인한다.
+1. 원본 이미지와 일반 BBox crop을 Qwen에 제공한다.
+2. 같은 BBox로 SAM2 mask를 생성한다.
+3. 원본 이미지와 mask crop을 Qwen에 제공한다.
+4. 사각형 안의 배경을 제거한 픽셀 단위 근거가 도움이 되는지 확인한다.

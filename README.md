@@ -64,8 +64,23 @@ BBox 유도 Qwen은 기존 답변 285개를 변경했다.
 
 BBox 표시는 recall을 높였다. 그러나 빨간 상자가 객체 존재의 암시로 작동해 false positive가 크게 증가했다.
 
+## 입력 대조 실험
+
+BBox 효과를 분리하기 위해 같은 test 질문에서 입력 형태를 비교했다.
+
+| 입력 | Accuracy | Precision | Recall | F1 | FPR |
+|---|---:|---:|---:|---:|---:|
+| 기존 Qwen | **86.54** | 93.98 | 78.08 | 85.30 | 5.00 |
+| 재확인 프롬프트만 | 86.17 | **94.56** | 76.75 | 84.73 | **4.42** |
+| 임의 위치 BBox | 84.46 | 90.26 | 77.25 | 83.25 | 8.33 |
+| OWLv2 BBox | 84.00 | 85.11 | 82.42 | 83.74 | 14.42 |
+| 원본 + OWLv2 crop | 85.13 | 83.37 | **87.75** | **85.51** | 17.50 |
+
+재확인 프롬프트만으로는 결과가 크게 변하지 않았다. 임의 BBox도 false positive를 늘렸다. 정확한 BBox와 crop은 recall을 높였지만 `Yes` 편향을 더 크게 만들었다.
+
 자세한 내용은 [파일럿 결과](docs/results/adversarial_pilot.md)를 참고한다.
 BBox 실험의 자세한 내용은 [BBox 유도 결과](docs/results/bbox_guided_adversarial.md)를 참고한다.
+대조 실험의 자세한 내용은 [입력 대조 결과](docs/results/grounding_input_controls.md)를 참고한다.
 
 ## 실행 환경 준비
 
@@ -165,10 +180,11 @@ POPE는 객체 존재 답변을 측정한다. POPE는 모든 개방형 환각을
 
 ## 다음 실험
 
-BBox 표시 조건은 완료했다. 다음에는 BBox와 프롬프트의 효과를 분리한다.
+입력 대조 실험은 완료했다. 다음에는 Qwen을 고정하고 detector를 변경한다.
 
-1. 원본 이미지에 BBox 조건과 같은 프롬프트만 사용한다.
-2. 임의 위치에 같은 크기의 BBox를 표시한다.
-3. 원본 이미지와 OWLv2 crop을 함께 제공한다.
+1. OWLv2, Grounding DINO tiny, Grounding DINO base를 비교한다.
+2. 각 detector의 객체 존재 판별 성능을 측정한다.
+3. 각 detector의 BBox를 Qwen에 제공한다.
+4. detector 성능과 BBox 유도 성능의 관계를 분석한다.
 
-이 대조 조건은 정확한 위치 정보, 시각적 강조, 프롬프트 암시의 효과를 구분한다.
+이 비교는 더 좋은 detector가 더 좋은 VLM 추론을 만드는지 확인한다.
